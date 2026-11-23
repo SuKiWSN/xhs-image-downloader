@@ -17,16 +17,16 @@
 
 ## 支持的系统和浏览器
 
-| 系统 | 浏览器 |
+| 系统 | 每次更新都自动测试的浏览器 |
 | --- | --- |
 | Windows 10 / 11 | Chrome、Edge |
-| macOS | Chrome、Edge |
-| Linux（Ubuntu、Debian、Fedora、Arch 等） | Chrome、Chromium、Edge |
+| Linux（Ubuntu、Debian、Fedora、Arch 等） | Chrome、Edge |
+| macOS | Chrome |
 
-需要浏览器版本 111 或更新。Brave、Vivaldi 等其他 Chromium 内核浏览器一般也能用。
+需要浏览器版本 111 或更新。macOS 上的 Edge，以及 Chromium、Brave、Vivaldi 等其他 Chromium 内核浏览器
+用的是同一套插件接口，一般也能用，只是没有放进自动测试。
 
-每次更新代码，GitHub 都会在 **Windows（Chrome 和 Edge）、Linux（Chrome）、macOS（Chrome）** 上自动跑一遍完整的下载测试，
-检查文件夹名、文件名和文件内容是否正确（见下方「开发与测试」）。
+自动测试会在上面每个系统和浏览器里真正加载插件、点击下载按钮，逐个检查文件夹名、文件名和文件内容（见下方「开发与测试」）。
 
 ## 安装
 
