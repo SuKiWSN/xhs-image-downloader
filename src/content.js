@@ -97,7 +97,9 @@
     if (/^\/404(?:\/|$)/.test(finalPath) || res.status === 404) throw new Error('这篇笔记已被删除，或暂时无法查看');
     if (!res.ok) throw new Error('获取笔记失败（HTTP ' + res.status + '）');
     const state = X.parseInitialState(await res.text());
-    const map = state && state.note && state.note.noteDetailMap;
+    // 页面拿到了却读不出数据，多半是小红书网页改版了；别让用户误以为是没登录
+    if (!state) throw new Error('读不出笔记页面里的数据（小红书网页可能改版了，请更新插件）；可以先点开这篇笔记，再用详情里的按钮下载');
+    const map = state.note && state.note.noteDetailMap;
     if (!map || typeof map !== 'object') return null;
     const entry = map[noteId] || Object.values(map).find((e) => e && e.note && e.note.noteId === noteId);
     return entry && X.hasMedia(entry.note) ? entry.note : null;

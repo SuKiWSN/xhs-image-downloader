@@ -246,6 +246,27 @@ test('解析页面里的 __INITIAL_STATE__', () => {
   assert.equal(X.parseInitialState('<html></html>'), null);
 });
 
+test('解析 __INITIAL_STATE__：new Map / new Set / NaN（真实页面 2026-11 起出现 new Map([])）', () => {
+  const state = (body) => X.parseInitialState('<script>window.__INITIAL_STATE__=' + body + '</script>');
+  // 真实页面的样子：笔记数据旁边多了一个 new Map([])，以前整段都解析失败
+  const s = state('{"note":{"noteDetailMap":{"abc":{"note":{"title":"t","n":NaN}}}},"AiNoteDetailStore":{"noteDetailMap":new Map([])},"global":undefined}');
+  assert.equal(s.note.noteDetailMap.abc.note.title, 't');
+  assert.equal(s.note.noteDetailMap.abc.note.n, null);
+  assert.deepEqual(s.AiNoteDetailStore, { noteDetailMap: {} });
+  // Map 变成普通对象（以后笔记数据本身改成 Map 也能读），Set 变成数组
+  assert.equal(state('{"note":{"noteDetailMap":new Map([["abc",{"note":{"title":"t"}}]])}}').note.noteDetailMap.abc.note.title, 't');
+  assert.deepEqual(state('{"m":new Map([["k",{"s":new Set([1,2])}]]),"e":new Map(),"x":new Set( [] ),"i":[-Infinity,1e-7]}'), {
+    m: { k: { s: [1, 2] } },
+    e: {},
+    x: [],
+    i: [null, 1e-7],
+  });
+  // 字符串里的同名文字原样保留
+  const text = 'a,undefined,new Map(1) "引号" (括号) NaN';
+  assert.equal(state('{"desc":' + JSON.stringify(text) + '}').desc, text);
+  assert.equal(state('{"a":new Map([1,2}'), null, '残缺的数据返回 null');
+});
+
 test('解析笔记链接', () => {
   const id = '6ad1782d00000000180131cb';
   assert.deepEqual(X.parseNoteUrl('/explore/' + id + '?xsec_token=AB%3D&xsec_source=pc_feed'), { noteId: id, xsecToken: 'AB=', xsecSource: 'pc_feed' });

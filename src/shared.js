@@ -380,6 +380,66 @@
   }
 
   /* ---------------------------------------------------------------- 页面数据 */
+  // 页面里的数据是 JS 字面量，不是严格的 JSON：值可能是 undefined、NaN，也可能是 new Map([...])、new Set([...])
+  // （2026 年 11 月起页面里多了 "AiNoteDetailStore":{"noteDetailMap":new Map([])}，整段数据就解析不了了）。
+  // 这里逐个字符扫描，跳过字符串里的内容，把它们改写成 JSON：
+  //   undefined / NaN / Infinity → null；new Set([...]) → 数组；其他 new X(a) → a；
+  //   new Map([[k, v], ...]) → {"__xhsdlMap__":[[k, v], ...]}，解析时由 reviveMaps 变回普通对象 { k: v }
+  const MAP_KEY = '__xhsdlMap__';
+  const WORD_RE = /[A-Za-z_$][\w$]*/y;
+  const CTOR_RE = /\s*([A-Za-z_$][\w$]*)\s*\(/y;
+
+  function jsLiteralToJson(src) {
+    let out = '';
+    const closers = []; // 每个「(」对应的「)」输出什么：普通括号原样输出；new X( 的括号去掉，Map 的换成「}」
+    let i = 0;
+    while (i < src.length) {
+      const c = src[i];
+      if (c === '"') {
+        let j = i + 1;
+        while (j < src.length && src[j] !== '"') j += src[j] === '\\' ? 2 : 1;
+        out += src.slice(i, j + 1);
+        i = j + 1;
+      } else if (/[A-Za-z_$]/.test(c)) {
+        WORD_RE.lastIndex = i;
+        const word = WORD_RE.exec(src)[0];
+        i += word.length;
+        CTOR_RE.lastIndex = i;
+        const ctor = word === 'new' ? CTOR_RE.exec(src) : null;
+        if (ctor) {
+          i = CTOR_RE.lastIndex;
+          const isMap = ctor[1] === 'Map';
+          if (isMap) out += '{"' + MAP_KEY + '":';
+          closers.push(isMap ? '}' : '');
+          if (/^\s*\)/.test(src.slice(i, i + 32))) out += '[]'; // new Map() 没有参数
+        } else if (word === 'undefined' || word === 'NaN' || word === 'Infinity') {
+          if (word === 'Infinity' && out.endsWith('-')) out = out.slice(0, -1);
+          out += 'null';
+        } else {
+          out += word; // true、false、null，以及数字里的 e（1e-7）
+        }
+      } else if (c === '(') {
+        closers.push(')');
+        out += c;
+        i++;
+      } else if (c === ')') {
+        out += closers.length ? closers.pop() : c;
+        i++;
+      } else {
+        out += c;
+        i++;
+      }
+    }
+    return out;
+  }
+
+  function reviveMaps(_key, value) {
+    if (value && typeof value === 'object' && !Array.isArray(value) && Array.isArray(value[MAP_KEY])) {
+      return Object.fromEntries(value[MAP_KEY].filter((e) => Array.isArray(e) && e.length >= 2).map((e) => [String(e[0]), e[1]]));
+    }
+    return value;
+  }
+
   // 从笔记页 HTML 中取出 window.__INITIAL_STATE__（里面有完整的图片列表）
   function parseInitialState(html) {
     if (typeof html !== 'string') return null;
@@ -387,14 +447,12 @@
     if (!m) return null;
     const start = m.index + m[0].length;
     const end = html.indexOf('</script>', start);
-    let json = html
+    const src = html
       .slice(start, end < 0 ? undefined : end)
       .trim()
       .replace(/;+\s*$/, '');
-    // 页面里的数据是 JS 字面量，含有 undefined，需要换成 null 才能 JSON.parse
-    json = json.replace(/([:,[]\s*)undefined(?=\s*[,}\]])/g, '$1null');
     try {
-      return JSON.parse(json);
+      return JSON.parse(jsLiteralToJson(src), reviveMaps);
     } catch (_) {
       return null;
     }

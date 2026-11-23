@@ -108,10 +108,11 @@ export const COMMENT_ID = '6a1e2e0000000000000c0001';
 const secure = (url) => url.replace(/^http:/, 'https:');
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 
-// 和真实页面一样：数据是 JS 字面量（含 undefined），放在 <script>window.__INITIAL_STATE__=…</script> 里
+// 和真实页面一样：数据是 JS 字面量而不是 JSON，放在 <script>window.__INITIAL_STATE__=…</script> 里。
+// 里面有 undefined，也有 new Map([])（真实页面的 AiNoteDetailStore.noteDetailMap 就是这样写的）
 function stateScript(state) {
   const json = JSON.stringify(state).replace(/</g, '\\u003c');
-  return `<script>window.__INITIAL_STATE__=${json.slice(0, -1)},"global":undefined}</script>`;
+  return `<script>window.__INITIAL_STATE__=${json.slice(0, -1)},"global":undefined,"AiNoteDetailStore":{"noteDetailMap":new Map([])}}</script>`;
 }
 
 const ref = (value) => ({ __v_isRef: true, __v_isShallow: false, _rawValue: value, _value: value, dep: {} });
