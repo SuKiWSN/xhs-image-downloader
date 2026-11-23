@@ -10,6 +10,7 @@
     downloadVideo: true, // 视频笔记：同时下载视频文件
     downloadLive: false, // 实况图（Live Photo）：同时下载动态视频
     subDir: '', // 下载目录下的上级文件夹，留空 = 直接放在下载目录
+    likeAfterDownload: true, // 下载完成后给笔记点赞，当作「已下载」的标记
   });
 
   // 笔记链接：/explore/<id>、/discovery/item/<id>、/search_result/<id>、/user/profile/<uid>/<id>
@@ -399,6 +400,18 @@
     }
   }
 
+  /* ---------------------------------------------------------------- 点赞按钮 */
+  // 小红书点赞按钮里的图标：没点赞是 <use href="#like_b">，已点赞是 <use href="#liked">。
+  // 返回 true 已点赞 / false 没点赞 / null 认不出。认不出时不能去点：点赞按钮是开关，点错会取消点赞
+  function likeIconState(href) {
+    const s = String(href || '');
+    const hash = s.lastIndexOf('#');
+    const name = hash < 0 ? '' : s.slice(hash + 1).toLowerCase();
+    if (/^liked/.test(name)) return true;
+    if (/^like(?!d)/.test(name)) return false;
+    return null;
+  }
+
   function parseNoteUrl(href, base) {
     if (!href) return null;
     try {
@@ -439,6 +452,7 @@
     sniffExt,
     extFromMime,
     parseInitialState,
+    likeIconState,
     parseNoteUrl,
   });
 

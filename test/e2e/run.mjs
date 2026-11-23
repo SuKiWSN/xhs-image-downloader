@@ -242,6 +242,13 @@ function walk(dir, prefix = '') {
 }
 
 const cardButton = (entry) => `.xhsdl-btn--card[data-note-id="${entry.id}"]`;
+const cardLike = (entry) => `section.note-item:has(${cardButton(entry)}) .like-wrapper`;
+const DETAIL_LIKE = '#noteContainer .engage-bar .like-wrapper';
+// 点赞按钮的图标：#liked 已点赞，#like_b 没点赞
+const likeIcon = (page, selector) => page.$eval(selector, (el) => el.querySelector('use').getAttribute('href'));
+// 服务器收到的这篇笔记的点赞（like）/ 取消点赞（dislike）请求
+const likesOf = (entry) => server.likeLog.filter((l) => l.kind === 'note' && l.id === entry.id).map((l) => l.action);
+const waitForLike = (entry) => waitFor(() => likesOf(entry).length > 0, 10000, '服务器收到点赞请求');
 
 /* ------------------------------------------------------------------ 场景 */
 const feed = await openFeed();
@@ -276,45 +283,58 @@ await scenario('首页每张卡片都有下载按钮，位置在点赞数前面'
   }
 });
 
-await scenario('卡片下载：jpg、png 原样保存，heic 转成 jpg，原图缺失时用网页图', async () => {
+await scenario('卡片下载：jpg、png 原样保存，heic 转成 jpg，原图缺失时用网页图；下载完点赞', async () => {
   const e = NOTES.images;
+  assert.equal(await likeIcon(feed, cardLike(e)), '#like_b', '测试开始时还没点赞');
   const toast = await clickAndWaitToast(feed, cardButton(e));
   const state = await feed.$eval(cardButton(e), (b) => b.dataset.state);
   assert.equal(toast.type, 'success', toast.text);
   assert.match(toast.text, /已保存 4 张图片/);
   assert(toast.text.includes(e.expect.folder), toast.text);
+  assert(!toast.text.includes('点赞'), '点赞成功时不用额外提示：' + toast.text);
   assert.equal(state, 'done');
   await expectFolder(e.expect.folder, e.expect.files);
   assert(
     server.requests.some((r) => r.host === 'sns-img-bd.xhscdn.com' && r.path.endsWith('_heic?imageView2/format/jpg/q/95')),
     'HEIC 原图应该让 CDN 转成 JPG'
   );
+  await waitForLike(e);
+  assert.deepEqual(likesOf(e), ['like'], '只点一次赞');
+  assert.equal(await likeIcon(feed, cardLike(e)), '#liked', '卡片上显示已点赞');
 });
 
-await scenario('视频笔记：保存 视频.mp4 和 封面.jpg', async () => {
+await scenario('视频笔记：保存 视频.mp4 和 封面.jpg；本来就点过赞的不再点（再点就取消了）', async () => {
   const e = NOTES.video;
+  assert.equal(await likeIcon(feed, cardLike(e)), '#liked', '这篇笔记测试开始前就点过赞');
   const toast = await clickAndWaitToast(feed, cardButton(e));
   assert.equal(toast.type, 'success', toast.text);
   assert.match(toast.text, /已保存 2 个文件/);
+  assert(!toast.text.includes('点赞'), toast.text);
   await expectFolder(e.expect.folder, e.expect.files);
+  assert.deepEqual(likesOf(e), [], '不应该再点赞按钮');
+  assert.equal(await likeIcon(feed, cardLike(e)), '#liked', '还是已点赞');
 });
 
-await scenario('Windows 保留名：标题 CON 存成 _CON，重复下载自动改名不覆盖', async () => {
+await scenario('Windows 保留名：标题 CON 存成 _CON，重复下载自动改名不覆盖，也不会取消点赞', async () => {
   const e = NOTES.reserved;
   let toast = await clickAndWaitToast(feed, cardButton(e));
   assert.equal(toast.type, 'success', toast.text);
   await expectFolder(e.expect.folder, e.expect.files);
+  await waitForLike(e);
   toast = await clickAndWaitToast(feed, cardButton(e));
   assert.equal(toast.type, 'success', toast.text);
   await expectFolder(e.expect.folder, { '01.jpg': 'photoJpg', '01 (1).jpg': 'photoJpg' });
+  assert.deepEqual(likesOf(e), ['like'], '第二次下载时已经点过赞，不能再点');
+  assert.equal(await likeIcon(feed, cardLike(e)), '#liked');
 });
 
-await scenario('长标题 + 多级上级文件夹 + PNG 格式：路径不超过 Windows 限制', async () => {
+await scenario('长标题 + 多级上级文件夹 + PNG 格式：路径不超过 Windows 限制；关掉自动点赞后不点赞', async () => {
   const e = NOTES.longTitle;
-  await setSettings({ subDir: LONG_SUBDIR, imageFormat: 'png' });
+  await setSettings({ subDir: LONG_SUBDIR, imageFormat: 'png', likeAfterDownload: false });
   try {
     const toast = await clickAndWaitToast(feed, cardButton(e));
     assert.equal(toast.type, 'success', toast.text);
+    assert(!toast.text.includes('点赞'), toast.text);
     const sub = X.sanitizePath(LONG_SUBDIR);
     const folder = X.folderNameFor(e.note);
     assert.equal(sub.length, X.LIMITS.subDirUnits, '上级文件夹应正好达到长度上限：' + sub);
@@ -322,12 +342,14 @@ await scenario('长标题 + 多级上级文件夹 + PNG 格式：路径不超过
     const rel = sub + '/' + folder;
     const dir = await expectFolder(rel, { '01.png': 'convertedPng', '02.png': 'photoPng' });
     log(`  保存位置：…/${rel}/（完整路径 ${path.join(dir, '01.png').length} 个字符）`);
+    assert.deepEqual(likesOf(e), [], '关掉「下载后自动点赞」后不点赞');
+    assert.equal(await likeIcon(feed, cardLike(e)), '#like_b');
   } finally {
-    await setSettings({ subDir: '', imageFormat: 'original' });
+    await setSettings({ subDir: '', imageFormat: 'original', likeAfterDownload: true });
   }
 });
 
-await scenario('笔记详情页：按钮显示张数和保存位置；没有标题时用正文第一句命名', async () => {
+await scenario('笔记详情页：按钮显示张数和保存位置；没有标题时用正文第一句命名；点的是笔记的赞，不是评论的', async () => {
   const e = NOTES.untitled;
   const page = watch(await browser.newPage(), 'detail');
   current = page;
@@ -337,9 +359,32 @@ await scenario('笔记详情页：按钮显示张数和保存位置；没有标�
   await waitFor(() => page.$eval(sel, (b) => b.textContent.trim() === '下载全部图片（2 张）'), 10000, '按钮上显示「下载全部图片（2 张）」');
   const hint = `保存到：下载 / ${e.expect.folder} /`;
   await waitFor(() => page.$eval('#noteContainer .xhsdl-detail-hint', (el, hint) => el.textContent === hint, hint), 10000, '按钮下方显示「' + hint + '」');
+  assert.equal(await likeIcon(page, DETAIL_LIKE), '#like_b', '测试开始时还没点赞');
   const toast = await clickAndWaitToast(page, sel);
   assert.equal(toast.type, 'success', toast.text);
+  assert(!toast.text.includes('点赞'), toast.text);
   await expectFolder(e.expect.folder, e.expect.files);
+  await waitForLike(e);
+  assert.deepEqual(likesOf(e), ['like'], '只点一次赞');
+  assert.equal(await likeIcon(page, DETAIL_LIKE), '#liked', '底部互动栏显示已点赞');
+  assert.equal(await likeIcon(page, '#noteContainer .comment-item .like-wrapper'), '#like_b', '评论的赞没被点');
+  assert.deepEqual(server.likeLog.filter((l) => l.kind === 'comment'), [], '没有给评论点赞');
+  await page.close();
+});
+
+await scenario('没登录：照常下载，不点赞，也不弹出登录框', async () => {
+  const e = NOTES.reserved;
+  const page = watch(await browser.newPage(), 'guest');
+  current = page;
+  await page.goto('https://www.xiaohongshu.com/explore?guest=1', { waitUntil: 'domcontentloaded' });
+  const before = server.likeLog.length;
+  const toast = await clickAndWaitToast(page, cardButton(e));
+  assert.equal(toast.type, 'success', toast.text);
+  assert.match(toast.text, /没登录小红书，没有自动点赞/);
+  await expectFolder(e.expect.folder, { '01.jpg': 'photoJpg', '01 (1).jpg': 'photoJpg', '01 (2).jpg': 'photoJpg' });
+  assert.equal(await page.$('.login-modal'), null, '不应该弹出登录框');
+  assert.equal(await likeIcon(page, cardLike(e)), '#like_b');
+  assert.equal(server.likeLog.length, before, '没登录时不发点赞请求');
   await page.close();
 });
 
@@ -353,6 +398,13 @@ await scenario('设置页：输入 Windows 绝对路径时去掉盘符并提示'
   await waitFor(() => page.$eval('#pathPreview', (el) => el.textContent === '下载 / 图片 / 小红书 / 笔记标题 / 01.jpg'), 5000, '路径预览');
   assert.equal(await page.$eval('#pathWarn', (el) => el.hidden), false, '应该显示绝对路径的提示');
   await waitFor(() => page.evaluate(() => chrome.storage.sync.get('subDir').then((s) => s.subDir === '图片/小红书')), 5000, '设置保存为「图片/小红书」');
+  const likeSwitch = 'input[name="likeAfterDownload"]';
+  const storedLike = (want) => () => page.evaluate((want) => chrome.storage.sync.get({ likeAfterDownload: true }).then((s) => s.likeAfterDownload === want), want);
+  assert.equal(await page.$eval(likeSwitch, (el) => el.checked), true, '「下载后自动点赞」默认打开');
+  await page.click(likeSwitch);
+  await waitFor(storedLike(false), 5000, '关掉「下载后自动点赞」后保存');
+  await page.click(likeSwitch);
+  await waitFor(storedLike(true), 5000, '重新打开「下载后自动点赞」后保存');
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth);
   assert.equal(overflow, false, '设置页不应出现横向滚动条');
   await page.screenshot({ path: path.join(OUT_DIR, 'popup.png') });
@@ -371,6 +423,11 @@ await scenario('下载目录里没有多余或未完成的文件', async () => {
   const bad = records.filter((r) => r.state !== 'complete');
   assert.deepEqual(bad, [], '所有下载都应该完成');
   assert.equal(records.length, all.length, '下载记录数和文件数一致');
+  assert.deepEqual(
+    server.likeLog,
+    [NOTES.images, NOTES.reserved, NOTES.untitled].map((e) => ({ kind: 'note', action: 'like', id: e.id })),
+    '只给下载过、原来没点赞的笔记各点了一次赞，没有取消过任何点赞'
+  );
 });
 
 /* ------------------------------------------------------------------ 结果 */

@@ -2,7 +2,8 @@
  * 小红书图片下载 · 内容脚本
  *  - 在每个笔记卡片底部（作者 / 点赞那一行）插入「下载」按钮
  *  - 在打开的笔记详情里（正文、日期下方）插入「下载全部图片」按钮
- * 点击后拿到这篇笔记的完整图片列表，交给后台保存到「下载/<笔记标题>/」文件夹。
+ * 点击后拿到这篇笔记的完整图片列表，交给后台保存到「下载/<笔记标题>/」文件夹；
+ * 下载完成后给这篇笔记点赞，当作「已下载」的标记（可在设置里关闭）。
  */
 (() => {
   'use strict';
@@ -12,6 +13,9 @@
 
   const LOG = '[小红书图片下载]';
   const RELOAD_HINT = '插件刚刚更新过，请刷新页面后再下载';
+  // 笔记详情：单独打开的笔记页面，或从列表点开的弹窗
+  const DETAIL_CONTAINERS = '#noteContainer, .note-detail-mask .note-container';
+  const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
   function extensionAlive() {
     try {
@@ -235,14 +239,20 @@
       );
       if (!result.done) throw new Error('下载失败：' + ((result.errors && result.errors[0]) || '未知错误'));
 
+      // 至少存下了一个文件才点赞标记。点完再结束任务，免得点赞期间又被点一次下载、把赞取消掉
+      const liked = await markDownloaded(noteId, !!ctx.container).catch((e) => {
+        console.warn(LOG, e);
+        return 'failed';
+      });
+      const likeTip = LIKE_SKIPPED[liked] ? '；' + LIKE_SKIPPED[liked] : '';
       const where = '「下载/' + result.dir + '」';
       if (result.failed) {
         finishJob(noteId, 'warn', result.done + '/' + result.total, 6000);
-        toast(`已保存 ${result.done}/${result.total} 个文件到${where}，${result.failed} 个失败（${result.errors[0]}）`, 'warn', result.firstId);
+        toast(`已保存 ${result.done}/${result.total} 个文件到${where}，${result.failed} 个失败（${result.errors[0]}）${likeTip}`, 'warn', result.firstId);
       } else {
         const what = plan.videoCount ? ` ${result.done} 个文件` : ` ${result.done} 张图片`;
         finishJob(noteId, 'done', '已下载', 4000);
-        toast(`已保存${what}到${where}`, 'success', result.firstId);
+        toast(`已保存${what}到${where}${likeTip}`, 'success', result.firstId);
       }
     } catch (e) {
       console.warn(LOG, e);
@@ -397,6 +407,12 @@
     return m.count != null ? m : null;
   }
 
+  // 详情里显示的是哪篇笔记：优先看地址栏，地址里没有笔记 ID 时用页面数据里的 currentNoteId
+  function detailNoteId(container) {
+    const fromUrl = X.parseNoteUrl(location.href);
+    return (fromUrl && fromUrl.noteId) || container.dataset.xhsdlNoteId || '';
+  }
+
   let askingCurrent = false;
   function rememberCurrentNoteId(container) {
     if (askingCurrent) return;
@@ -432,9 +448,8 @@
       else scroller.insertBefore(bar, scroller.children[1] || null);
     }
 
-    const fromUrl = X.parseNoteUrl(location.href);
-    const noteId = (fromUrl && fromUrl.noteId) || container.dataset.xhsdlNoteId || '';
-    if (!fromUrl) rememberCurrentNoteId(container);
+    const noteId = detailNoteId(container);
+    if (!X.parseNoteUrl(location.href)) rememberCurrentNoteId(container);
     const m = noteMeta(noteId);
 
     const btn = bar.querySelector('.xhsdl-btn');
@@ -487,6 +502,72 @@
       titleHint: titleEl ? titleEl.textContent.trim() : '',
       container,
     });
+  }
+
+  /* ------------------------------------------------------------------ 点赞标记 */
+  // 下载完成后点一下这篇笔记的点赞按钮（红心），当作「已下载」的标记：
+  //  - 点赞按钮是开关，已点赞的再点会取消，所以先看清状态，只在确定没点赞时点一次；
+  //  - 卡片和打开的详情里可能同时有这篇笔记的点赞按钮，小红书会自己同步两边，只点其中一个；
+  //  - 没登录时点赞会弹出登录框，这时不点。
+  // 没点成的原因（会附在下载完成的提示后面）
+  const LIKE_SKIPPED = {
+    guest: '没登录小红书，没有自动点赞',
+    missing: '没找到点赞按钮，没有自动点赞',
+    unknown: '看不出是否已点过赞，没有自动点赞',
+    failed: '自动点赞没有成功',
+  };
+
+  // 按钮图标显示的点赞状态，也就是点一下会切换掉的状态：true 已点赞 / false 没点赞 / null 认不出
+  function likedInDom(btn) {
+    if (!btn || !btn.isConnected) return null;
+    if (btn.querySelector('.pray-like-icon')) return true; // 少数笔记点赞后图标换成一张图片
+    const use = btn.querySelector('use');
+    return use ? X.likeIconState(use.getAttribute('href') || use.getAttribute('xlink:href')) : null;
+  }
+
+  // 先看图标；图标认不出时再看页面数据
+  async function isLiked(btn, noteId) {
+    const dom = likedInDom(btn);
+    if (dom !== null) return dom;
+    const page = await askPage('likeInfo', { noteId });
+    return page ? page.liked : null;
+  }
+
+  // 这篇笔记的点赞按钮：从详情里点的下载优先用详情的，否则优先用卡片的。
+  // 详情的评论区里每条评论也有点赞按钮，只认底部互动栏（.engage-bar）里的那个
+  function findLikeButton(noteId, preferDetail) {
+    const inDetail = [];
+    for (const container of document.querySelectorAll(DETAIL_CONTAINERS)) {
+      const btn = detailNoteId(container) === noteId && container.querySelector('.engage-bar .like-wrapper');
+      if (btn) inDetail.push(btn);
+    }
+    const inCards = [];
+    for (const card of document.querySelectorAll('section.note-item')) {
+      const info = cardInfo(card);
+      const btn = info && info.noteId === noteId && card.querySelector('.footer .like-wrapper');
+      if (btn) inCards.push(btn);
+    }
+    return (preferDetail ? inDetail.concat(inCards) : inCards.concat(inDetail))[0] || null;
+  }
+
+  // 返回 liked（点了赞）、already（本来就点过赞）、off（设置里关了），或 LIKE_SKIPPED 里没点成的原因
+  async function markDownloaded(noteId, preferDetail) {
+    if (!settings.likeAfterDownload) return 'off';
+    const page = (await askPage('likeInfo', { noteId })) || {};
+    if (page.loggedIn === false) return 'guest';
+    const btn = findLikeButton(noteId, preferDetail);
+    if (!btn) return page.liked === true ? 'already' : 'missing';
+    const before = await isLiked(btn, noteId);
+    if (before === true) return 'already';
+    if (before !== false) return 'unknown';
+    btn.click();
+    // 卡片上的图标点下去马上变成已点赞；详情底部的要等点赞请求成功后才变。5 秒内还没变过来就是没点成
+    const deadline = Date.now() + 5000;
+    while (Date.now() < deadline) {
+      await sleep(100);
+      if ((await isLiked(btn, noteId)) === true) return 'liked';
+    }
+    return 'failed';
   }
 
   /* ------------------------------------------------------------------ 提示条 */
@@ -565,7 +646,7 @@
         console.debug(LOG, e);
       }
     }
-    const containers = new Set(document.querySelectorAll('#noteContainer, .note-detail-mask .note-container'));
+    const containers = new Set(document.querySelectorAll(DETAIL_CONTAINERS));
     for (const container of containers) {
       try {
         injectDetail(container);

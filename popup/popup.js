@@ -26,6 +26,7 @@
     for (const radio of document.querySelectorAll('input[name="imageFormat"]')) radio.checked = radio.value === current.imageFormat;
     $('input[name="downloadVideo"]').checked = !!current.downloadVideo;
     $('input[name="downloadLive"]').checked = !!current.downloadLive;
+    $('input[name="likeAfterDownload"]').checked = !!current.likeAfterDownload;
     subInput.value = current.subDir || '';
     updatePreview();
   }
@@ -45,7 +46,7 @@
   document.querySelector('main').addEventListener('change', (event) => {
     const t = event.target;
     if (t.name === 'imageFormat') save({ imageFormat: t.value });
-    else if (t.name === 'downloadVideo' || t.name === 'downloadLive') save({ [t.name]: t.checked });
+    else if (t.name === 'downloadVideo' || t.name === 'downloadLive' || t.name === 'likeAfterDownload') save({ [t.name]: t.checked });
     else if (t.name === 'subDir') {
       clearTimeout(subTimer);
       const clean = X.sanitizePath(t.value);

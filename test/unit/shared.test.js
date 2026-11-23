@@ -256,3 +256,18 @@ test('解析笔记链接', () => {
   assert.equal(X.parseNoteUrl('/livestream/570553192127844452?note_id=' + id), null);
   assert.equal(X.parseNoteUrl('/explore'), null);
 });
+
+test('点赞按钮图标：认出已点赞 / 没点赞，认不出时返回 null（这时不能去点，点错会取消点赞）', () => {
+  assert.equal(X.likeIconState('#liked'), true);
+  assert.equal(X.likeIconState('#like_b'), false);
+  assert.equal(X.likeIconState('#like'), false);
+  assert.equal(X.likeIconState('/universal/web-static/svg-sprite.svg#liked'), true);
+  assert.equal(X.likeIconState('/universal/web-static/svg-sprite.svg#like_b'), false);
+  for (const href of ['', null, undefined, '#', 'liked', '#collect', '#collected', '#reply']) {
+    assert.equal(X.likeIconState(href), null, String(href));
+  }
+});
+
+test('默认设置：下载后自动点赞', () => {
+  assert.equal(X.DEFAULT_SETTINGS.likeAfterDownload, true);
+});
