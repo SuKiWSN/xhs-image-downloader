@@ -1,0 +1,22 @@
+{
+  "name": "xhs-image-downloader",
+  "version": "1.0.0",
+  "private": true,
+  "description": "小红书图片下载 Chrome 插件：在每篇笔记下方加一个下载按钮，把全部图片存进以标题命名的文件夹",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/SuKiWSN/xhs-image-downloader.git"
+  },
+  "scripts": {
+    "test": "node --test test/unit/shared.test.js",
+    "test:e2e": "node test/e2e/run.mjs"
+  },
+  "engines": {
+    "node": ">=22.12"
+  },
+  "devDependencies": {
+    "puppeteer-core": "^25.18.1",
+    "selfsigned": "^5.5.0"
+  }
+}

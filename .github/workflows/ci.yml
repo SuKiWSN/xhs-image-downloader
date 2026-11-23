@@ -1,0 +1,52 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { name: Windows · Chrome, os: windows-latest, browser: chrome }
+          - { name: Windows · Edge, os: windows-latest, browser: msedge }
+          - { name: Linux · Chrome, os: ubuntu-latest, browser: chrome }
+          - { name: Linux · Edge, os: ubuntu-latest, browser: msedge }
+          - { name: macOS · Chrome, os: macos-latest, browser: chrome }
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: 安装测试工具
+        run: npm ci
+
+      - name: 单元测试
+        run: npm test
+
+      - name: 端到端测试（真实浏览器 + 本地模拟的小红书）
+        run: npm run test:e2e
+        env:
+          XHSDL_BROWSER: ${{ matrix.browser }}
+
+      - name: 上传截图
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: e2e-${{ matrix.os }}-${{ matrix.browser }}
+          path: test/e2e/output/
+          if-no-files-found: ignore
+          retention-days: 14

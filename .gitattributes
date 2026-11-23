@@ -1,0 +1,13 @@
+# 所有文本文件在仓库里统一用 LF 换行，Windows 上检出也不变
+* text=auto eol=lf
+*.png binary
+*.jpg binary
+*.webp binary
+
+# 下面这些不属于插件本身：GitHub 的「Download ZIP」和 Releases 安装包里都不包含
+/.github export-ignore
+/test export-ignore
+/package.json export-ignore
+/package-lock.json export-ignore
+/.gitattributes export-ignore
+/.gitignore export-ignore

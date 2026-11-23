@@ -1,0 +1,15 @@
+# 依赖和测试输出
+node_modules/
+test/e2e/output/
+
+# 打包产物、扩展私钥（打包 .crx 时生成，千万不要提交）
+*.zip
+*.crx
+*.pem
+
+# 系统和编辑器
+.DS_Store
+Thumbs.db
+desktop.ini
+.idea/
+.vscode/

@@ -1,0 +1,295 @@
+/* 小红书图片下载 · 注入页面的样式（类名都以 xhsdl- 开头，不影响页面原有样式） */
+
+.xhsdl-btn.xhsdl-btn {
+  all: unset;
+  box-sizing: border-box;
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans CJK SC", "Source Han Sans SC", "WenQuanYi Micro Hei", sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1;
+  white-space: nowrap;
+  color: #ff2442;
+  background: rgba(255, 36, 66, 0.1);
+  border-radius: 999px;
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+  transition: background-color 0.15s ease, color 0.15s ease, transform 0.1s ease;
+}
+
+.xhsdl-btn.xhsdl-btn[data-state="idle"]:hover {
+  color: #fff;
+  background: #ff2442;
+}
+
+.xhsdl-btn.xhsdl-btn:active {
+  transform: scale(0.96);
+}
+
+.xhsdl-btn.xhsdl-btn:focus-visible {
+  outline: 2px solid #ff2442;
+  outline-offset: 2px;
+}
+
+.xhsdl-btn.xhsdl-btn[hidden] {
+  display: none !important;
+}
+
+.xhsdl-icon {
+  width: 14px;
+  height: 14px;
+  flex: none;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.xhsdl-spin {
+  animation: xhsdl-spin 0.8s linear infinite;
+}
+
+@keyframes xhsdl-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ---------- 卡片：放在底部「作者 · 点赞」那一行，靠右紧挨着点赞数 ---------- */
+.xhsdl-btn.xhsdl-btn--card {
+  height: 20px;
+  margin: 0 8px 0 auto;
+  padding: 0 7px 0 5px;
+}
+
+.xhsdl-btn.xhsdl-btn--card .xhsdl-icon {
+  width: 13px;
+  height: 13px;
+}
+
+/* 找不到底部那一行时的备用位置：封面右上角 */
+.xhsdl-btn.xhsdl-btn--overlay {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 5;
+  height: 24px;
+  margin: 0;
+  padding: 0 9px 0 7px;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.5);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+}
+
+/* ---------- 详情：正文下方的整行按钮 ---------- */
+.xhsdl-detail-bar {
+  margin: 16px 0 4px;
+}
+
+.xhsdl-btn.xhsdl-btn--detail {
+  width: 100%;
+  height: 40px;
+  gap: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #fff;
+  background: #ff2442;
+}
+
+.xhsdl-btn.xhsdl-btn--detail[data-state="idle"]:hover {
+  background: #e81d3b;
+}
+
+.xhsdl-btn.xhsdl-btn--detail .xhsdl-icon {
+  width: 17px;
+  height: 17px;
+  stroke-width: 2.2;
+}
+
+.xhsdl-detail-hint {
+  margin-top: 8px;
+  overflow: hidden;
+  font-size: 12px;
+  line-height: 1.4;
+  color: #8c8c8c;
+  text-align: center;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* ---------- 状态 ---------- */
+.xhsdl-btn.xhsdl-btn[data-state="busy"] {
+  cursor: progress;
+}
+
+.xhsdl-btn.xhsdl-btn--detail[data-state="busy"] {
+  background: #ff5c74;
+}
+
+.xhsdl-btn.xhsdl-btn[data-state="done"] {
+  color: #12a150;
+  background: rgba(18, 161, 80, 0.14);
+}
+
+.xhsdl-btn.xhsdl-btn[data-state="warn"] {
+  color: #c27803;
+  background: rgba(245, 158, 11, 0.16);
+}
+
+.xhsdl-btn.xhsdl-btn[data-state="error"] {
+  color: #d92d20;
+  background: rgba(217, 45, 32, 0.13);
+}
+
+.xhsdl-btn.xhsdl-btn--detail[data-state="done"] {
+  color: #fff;
+  background: #12a150;
+}
+
+.xhsdl-btn.xhsdl-btn--detail[data-state="warn"] {
+  color: #fff;
+  background: #e08e0b;
+}
+
+.xhsdl-btn.xhsdl-btn--detail[data-state="error"] {
+  color: #fff;
+  background: #d92d20;
+}
+
+.xhsdl-btn.xhsdl-btn--overlay[data-state] {
+  color: #fff;
+  background: rgba(0, 0, 0, 0.55);
+}
+
+/* ---------- 提示条 ---------- */
+.xhsdl-toast-host {
+  position: fixed;
+  bottom: 32px;
+  left: 50%;
+  z-index: 2147483000;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  max-width: min(560px, calc(100vw - 32px));
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+.xhsdl-toast {
+  --xhsdl-dot: #8e8e93;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 10px 10px 14px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans CJK SC", "Source Han Sans SC", "WenQuanYi Micro Hei", sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+  color: #fff;
+  background: rgba(30, 30, 32, 0.95);
+  border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.22);
+  opacity: 0;
+  transform: translateY(8px);
+  transition: opacity 0.2s ease, transform 0.2s ease;
+  pointer-events: auto;
+}
+
+.xhsdl-toast::before {
+  content: "";
+  flex: none;
+  width: 8px;
+  height: 8px;
+  background: var(--xhsdl-dot);
+  border-radius: 50%;
+}
+
+.xhsdl-toast--in {
+  opacity: 1;
+  transform: none;
+}
+
+.xhsdl-toast--success {
+  --xhsdl-dot: #30d158;
+}
+
+.xhsdl-toast--warn {
+  --xhsdl-dot: #ffb020;
+}
+
+.xhsdl-toast--error {
+  --xhsdl-dot: #ff453a;
+}
+
+.xhsdl-toast-text {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.xhsdl-toast-action,
+.xhsdl-toast-close {
+  all: unset;
+  flex: none;
+  cursor: pointer;
+}
+
+.xhsdl-toast-action {
+  padding: 4px 10px;
+  font-size: 13px;
+  white-space: nowrap;
+  background: rgba(255, 255, 255, 0.14);
+  border-radius: 999px;
+}
+
+.xhsdl-toast-action:hover {
+  background: rgba(255, 255, 255, 0.26);
+}
+
+.xhsdl-toast-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  font-size: 18px;
+  line-height: 1;
+  color: rgba(255, 255, 255, 0.6);
+  border-radius: 50%;
+}
+
+.xhsdl-toast-close:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+/* Windows 高对比度主题会去掉背景色，加上边框让按钮和提示条仍然看得出来 */
+@media (forced-colors: active) {
+  .xhsdl-btn.xhsdl-btn,
+  .xhsdl-toast,
+  .xhsdl-toast-action {
+    border: 1px solid ButtonText;
+  }
+
+  .xhsdl-toast::before {
+    forced-color-adjust: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .xhsdl-spin {
+    animation-duration: 2.4s;
+  }
+
+  .xhsdl-toast,
+  .xhsdl-btn.xhsdl-btn {
+    transition: none;
+  }
+}
