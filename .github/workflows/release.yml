@@ -36,6 +36,12 @@ jobs:
         run: |
           git archive --format=zip -o "xhs-image-downloader-$GITHUB_REF_NAME.zip" HEAD
           unzip -l "xhs-image-downloader-$GITHUB_REF_NAME.zip"
+          unzip -q "xhs-image-downloader-$GITHUB_REF_NAME.zip" -d dist
+
+      - name: 用解压后的安装包跑一遍端到端测试
+        run: npm run test:e2e
+        env:
+          XHSDL_EXTENSION_DIR: dist
 
       - name: 发布
         env:

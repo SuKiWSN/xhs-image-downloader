@@ -8,6 +8,7 @@
 //   XHSDL_BROWSER=chrome | msedge | chromium   用哪个浏览器（默认本机安装的 Chrome 正式版）
 //   CHROME_PATH=/path/to/browser               直接指定浏览器程序
 //   HEADFUL=1                                  显示浏览器窗口
+//   XHSDL_EXTENSION_DIR=dist                   测试解压后的安装包，而不是仓库里的源码
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -22,7 +23,7 @@ const require = createRequire(import.meta.url);
 const X = require('../../src/shared.js');
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
-const EXT_DIR = path.resolve(HERE, '..', '..');
+const EXT_DIR = process.env.XHSDL_EXTENSION_DIR ? path.resolve(process.env.XHSDL_EXTENSION_DIR) : path.resolve(HERE, '..', '..');
 const OUT_DIR = path.join(HERE, 'output');
 // 按很长的下载目录来测（Windows 用户可能把下载位置设得很深），确认路径不会超过 Windows 的 259 个字符
 const DOWNLOAD_DIR_LENGTH = 115;
@@ -138,7 +139,7 @@ function watch(page, label) {
 
 const swTarget = await browser.waitForTarget((t) => t.type() === 'service_worker' && t.url().endsWith('/src/background.js'), { timeout: 30000 });
 const extId = new URL(swTarget.url()).host;
-log('插件已加载：', extId);
+log('插件已加载：', extId, '｜来自：', EXT_DIR);
 
 let extPage = null;
 async function extensionPage() {
