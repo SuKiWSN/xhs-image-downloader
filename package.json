@@ -1,6 +1,6 @@
 {
   "name": "xhs-image-downloader",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "private": true,
   "description": "小红书图片下载 Chrome 插件：在每篇笔记下方加一个下载按钮，把全部图片存进以标题命名的文件夹",
   "license": "MIT",

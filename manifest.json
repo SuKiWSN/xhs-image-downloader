@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "小红书图片下载",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "在小红书每篇笔记下方添加「下载」按钮，一键把笔记里的全部图片保存到下载目录下以笔记标题命名的文件夹。",
   "homepage_url": "https://github.com/SuKiWSN/xhs-image-downloader",
   "minimum_chrome_version": "111",
